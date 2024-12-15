@@ -3,11 +3,10 @@ package io.pubmed.command;
 import io.pubmed.benchmark.BenchmarkConfig;
 import io.pubmed.benchmark.BenchmarkConstants;
 import io.pubmed.benchmark.BenchmarkService;
-import io.pubmed.benchmark.BenchmarkResult;
 import io.pubmed.dto.Author;
 import io.pubmed.dto.Journal;
-import io.pubmed.dto.JournalIssue;
 import io.pubmed.service.*;
+import io.pubmed.service.impl.JournalServiceImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -15,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
-import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -24,8 +22,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.fury.ThreadSafeFury;
@@ -63,6 +59,92 @@ public class DatabaseCommand {
     @Autowired
     private ThreadSafeFury fury;
 
+    //ArticleService
+    @ShellMethod(key = "db getArticleCitationsByYear", value = "ArticleService")
+    public int getArticleCitationsByYear(){
+        int id = 2985470;
+        int year = 2023;
+        return articleService.getArticleCitationsByYear(id,year);
+    }
+    @ShellMethod(key = "db addArticleAndUpdateIF", value = "ArticleService")
+    public double addArticleAndUpdateIF() throws ParseException {
+        Article article1 = new Article();
+        article1.setId(9999999);
+        article1.setTitle("Mechanisms of G protein-coupled receptor signaling in drug development");
+        article1.setPub_model("Print");
+        Journal journal = new Journal();
+        journal.setTitle("Molecular pharmacology");
+        article1.setJournal(journal);
+        DateFormat dateFormat1 = new SimpleDateFormat("yyyy-MM-dd");
+        Date dateCreated = dateFormat1.parse("2023-01-18");
+        java.sql.Date sqlDate1 = new java.sql.Date(dateCreated.getTime());
+        article1.setCreated(sqlDate1);
+        Date dateCompeleted = dateFormat1.parse("2023-12-18");
+        java.sql.Date sqlDate2 = new java.sql.Date(dateCompeleted.getTime());
+        article1.setCompleted(sqlDate2);
+        return articleService.addArticleAndUpdateIF(article1);
+    }
+
+    //AuthorService
+    @ShellMethod(key = "db getArticlesByAuthorSortedByCitations", value = "AuthorService")
+    public String getArticlesByAuthorSortedByCitations(){
+        Author authorTest = new Author();
+        authorTest.setFore_name("H");
+        authorTest.setLast_name("Nakajima");
+        int[] temp = authorService.getArticlesByAuthorSortedByCitations(authorTest);
+        return Arrays.toString(temp);
+    }
+    @ShellMethod(key = "db getJournalWithMostArticlesByAuthor", value = "AuthorService")
+    public String getJournalWithMostArticlesByAuthor(){
+        Author authorTest = new Author();
+        authorTest.setFore_name("H");
+        authorTest.setLast_name("Nakajima");
+        //authorTest.setInitials("H");
+        String title = authorService.getJournalWithMostArticlesByAuthor(authorTest);
+        return title;
+    }
+    @ShellMethod(key = "db getMinArticlesToLinkAuthors", value = "AuthorService")
+    public int getMinArticlesToLinkAuthors(){
+        Author author1 = new Author();
+        author1.setFore_name("H");
+        author1.setLast_name("Nakajima");
+        //authorTest.setInitials("H");
+        Author author2 = new Author();
+        author2.setInitials("KE");
+        author2.setFore_name("K E");
+        author2.setLast_name("McMartin");
+        author2.setCollective_name("false");
+        int result = authorService.getMinArticlesToLinkAuthors(author1,author2);
+        return result;
+    }
+    //GrantService
+    @ShellMethod(key = "db getCountryFundPapers", value = "GrantService")
+    public String getCountryFundPapers(){
+        String country= "Canada";
+        return Arrays.toString(grantService.getCountryFundPapers(country));
+    }
+    //JournalService
+    @ShellMethod(key = "db getImpactFactor", value = "JournalService")
+    public double getImpactFactor(){
+        String title= "Molecular pharmacology";
+        int year = 2023;
+
+        return journalService.getImpactFactor(title,year);
+    }
+    @ShellMethod(key = "db updateJournalName", value = "JournalService")
+    public boolean updateJournalName(){
+        Journal journal = new Journal();
+        journal.setId("0151424");
+        journal.setTitle("Biochemical medicine");
+        return journalService.updateJournalName(journal,999,"Biochemical medicine NEW","0000000");
+    }
+    @ShellMethod(key = "db getArticleCountByKeywordInPastYears", value = "KetwordService")
+    public String getArticleCountByKeywordInPastYears(){
+        return Arrays.toString(keywordService.getArticleCountByKeywordInPastYears("Biology"));
+    }
+
+
+
 
     @ShellMethod(key = "db groupmember", value = "List group members")
     public List<Integer> listGroupMembers() {
@@ -80,6 +162,10 @@ public class DatabaseCommand {
         return databaseService.sum(a, b);
     }
 
+    @ShellMethod(key = "db Print", value = "Print1")
+    public void printTest(){
+        System.out.println(111);
+    }
 
     @ShellMethod(key = "db gen", value = "Generate test instance ")
     public void generateData() throws ParseException {
@@ -157,8 +243,9 @@ public class DatabaseCommand {
         input4.add(new Object[]{author1});
         for (Object[] args : input4){
 //            String s1 = ((Author) args[0]).getLast_name();
+            //fjm var res = authorService.getArticlesByAuthorSortedByCitations((Author) args[0]);
             var res = authorService.getArticlesByAuthorSortedByCitations((Author) args[0]);
-
+            //System.out.println("!!!!!"+author1.getFore_name());
             log.info("answer for getArticlesByAuthorSortedByCitations:  got {}", res);
 
             Map.Entry<Object[], int[]> entry = new AbstractMap.SimpleEntry<>(args, res);

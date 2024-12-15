@@ -84,7 +84,6 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public Integer sum(int a, int b) {
         String sql = "SELECT ?+?";
-
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, a);

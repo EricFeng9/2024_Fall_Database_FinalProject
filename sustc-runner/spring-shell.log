@@ -1,1 +1,72 @@
 1733672375946:help
+1733885773516:nnn
+1733885776539:www
+1733885779559:help
+1733885830903:db help
+1733885833920:help
+1733885891359:db sum
+1733885900442:ab sum(100,100)
+1733885911524:db sum(100,1)
+1733885919583:db sum a=100 b=1
+1733885930669:db sum 1 2
+1733885954875:db groupmember
+1733886268527:db sum 0 1
+1733886299928:help
+1733886351443:getArticleCitationsByYear
+1733886355476:db getArticleCitationsByYear 1 2
+1733886546330:exit
+1733887160322:db sum 8 9
+1733887294981:db gen
+1733889276469:help
+1733889455118:db gen
+1733889468242:db test
+1733890150288:help
+1733892224727:db print
+1733892228774:db Print
+1733895383964:help
+1733895396096:db addArticleAndUpdateIF article
+1733895402156:db addArticleAndUpdateIF 111
+1733895974011:db test
+1733895990148:db gen
+1733899224601:db getArticlesByAuthorSortedByCitations
+1733900018989:getArticlesByAuthorSortedByCitations
+1733900025058:db getArticlesByAuthorSortedByCitations
+1733900155123:getArticlesByAuthorSortedByCitations
+1733900161188:db getArticlesByAuthorSortedByCitations
+1733900187188:getArticlesByAuthorSortedByCitations
+1733900189197:db getArticlesByAuthorSortedByCitations
+1733900368998:db shell:>db
+1733900375058:db getArticlesByAuthorSortedByCitations
+1733900753536:db try (Connection conn = dataSource.getConnection();
+1733900761606:db getArticlesByAuthorSortedByCitations
+1733900951174:db sum 5 8
+1733900976436:db sum 0 9
+1733901082854:db sum 9 0
+1733901118192:db sum 12 2
+1733901216898:db sum
+1733901223949:db sum 2 9
+1733901242539:db sum 11
+1733901245569:db sum 1 2
+1733901260414:db sum 12 2
+1733901353056:db getArticlesByAuthorSortedByCitations
+1733902167847:db gen
+1733902881422:db getArticlesByAuthorSortedByCitations
+1733902918032:db getJournalWithMostArticlesByAuthor
+1734067079027:db getMinArticlesToLinkAuthors
+1734069636065:db getArticleCitationsByYear
+1734072623346:db addArticleAndUpdateIF
+1734072877208:utf -8
+1734073005419:db addArticleAndUpdateIF
+1734073517269:log.info(String.valueOf(affectedRows));
+1734073527366:db addArticleAndUpdateIF
+1734074698613:addArticleAndUpdateIF
+1734074701647:db addArticleAndUpdateIF
+1734074808125:db log.info("here");
+1734074814167:db addArticleAndUpdateIF
+1734079407793:db DELETE FROM Article WHERE id =
+1734079422953:db addArticleAndUpdateIF
+1734087490067:db getCountryFundPapers
+1734089963369:db getImpactFactor
+1734274927647:db updateJournalName
+1734275060950:db getArticleCountByKeywordInPastYears
+1734275242325:db gen

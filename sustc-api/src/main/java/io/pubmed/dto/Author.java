@@ -29,4 +29,20 @@ public class Author implements Serializable {
     public String getLast_name() {
         return last_name;
     }
+
+    public void setFore_name(String fore_name) {
+        this.fore_name = fore_name;
+    }
+
+    public void setLast_name(String last_name) {
+        this.last_name = last_name;
+    }
+
+    public void setInitials(String initials) {
+        this.initials = initials;
+    }
+
+    public void setCollective_name(String collective_name) {
+        this.collective_name = collective_name;
+    }
 }
