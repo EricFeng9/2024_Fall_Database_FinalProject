@@ -248,11 +248,11 @@ public class GoodLoader {
     public static void main(String[] args) {
         String fileName;
         //F:\Sustech\24Fall_Database\FinalProject
-        fileName = "F:\\Sustech\\24Fall_Database\\FinalProject\\pubmed24n.ndjson";
+        fileName = "D:\\project2\\pubmed24n.ndjson";
         Properties properties = new Properties();
         properties.put("host", "localhost");
-        properties.put("user", "postgres");
-        properties.put("password", "Lekge66811616");
+        properties.put("user", "test");
+        properties.put("password", "123456");
         properties.put("database", "postgres");
         Properties prop = new Properties(properties);
         try (BufferedReader infile

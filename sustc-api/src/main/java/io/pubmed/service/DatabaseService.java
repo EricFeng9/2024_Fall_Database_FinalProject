@@ -1,5 +1,6 @@
 package io.pubmed.service;
 
+import javax.sql.DataSource;
 import java.util.List;
 
 public interface DatabaseService {
@@ -34,4 +35,8 @@ public interface DatabaseService {
      * @return the sum of two numbers
      */
     Integer sum(int a, int b);
+
+    boolean backk();
+
+    DataSource getDataSource();
 }

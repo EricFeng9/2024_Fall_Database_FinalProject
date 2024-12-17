@@ -15,8 +15,13 @@ import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.sql.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -25,7 +30,6 @@ import java.util.List;
  */
 @Service
 @Slf4j
-
 public class ArticleServiceImpl implements ArticleService {
     @Autowired
     private DataSource dataSource;
@@ -40,18 +44,20 @@ public class ArticleServiceImpl implements ArticleService {
     public int getArticleCitationsByYear(int id, int year) {
         //已测试1213
         String sql = """
-        SELECT COUNT(*) AS citation_count
-        FROM Article_Citations ac
-        WHERE ac.article_id = ? AND ac.citation_year = ?;
+          SELECT COALESCE(ac.citation_count, 0) AS citation_count
+    FROM Article_Citations ac
+    WHERE ac.article_id = ?
+      AND ac.citation_year = ?;
     """;
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, id);
             stmt.setInt(2, year);
-
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return rs.getInt("citation_count");
+                int totalCitations = rs.getInt("citation_count");
+                log.info("Total citation count: {} for id: {} in year: {}", totalCitations, id, year);
+                return totalCitations;
             }
         } catch (SQLException e) {
             log.error("Error fetching article citations by year", e);
@@ -76,106 +82,205 @@ public class ArticleServiceImpl implements ArticleService {
      */
     @Override
     public double addArticleAndUpdateIF(Article article) {
-        // 插入新文章的 SQL
-        String insertSql = """
-        INSERT INTO Article (id, title, pub_model, date_created, date_completed)
-        VALUES (?, ?, ?, ?, ?);
+        String insertArticleSql = """
+    INSERT INTO Article (id, title, pub_model, date_created, date_completed)
+    VALUES (?, ?, ?, ?, ?);
     """;
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+        String insertReferenceSql = """
+    INSERT INTO article_references (article_id, reference_id)
+    VALUES (?, ?);
+    """;
+        String insertJournalArticleSql = """
+    INSERT INTO article_journal (journal_id, article_id)
+    VALUES (?, ?);
+    """;
+        String deleteArticleSql = "DELETE FROM Article WHERE id = ?";
+        String deleteReferenceSql = "DELETE FROM article_references WHERE article_id = ?";
+        String deleteJournalArticleSql = "DELETE FROM journal_article WHERE article_id = ?";
 
-            // 设置文章基本信息
-            insertStmt.setInt(1, article.getId());
-            insertStmt.setString(2, article.getTitle());
-            insertStmt.setString(3, article.getPub_model());
-            insertStmt.setDate(4, article.getCreated() != null ? new java.sql.Date(article.getCreated().getTime()) : null);
-            insertStmt.setDate(5, article.getCompleted() != null ? new java.sql.Date(article.getCompleted().getTime()) : null);
+        try (Connection conn = dataSource.getConnection()) {
+            // 禁用自动提交，开启事务
+            conn.setAutoCommit(false);
 
-            // 插入文章记录
-            int affectedRows = insertStmt.executeUpdate();
-            if (affectedRows > 0) {
-                // fjm 获取期刊ID 直接article.getJournal().getId()取不到，因为db gen给的样例只往article里放了title
-                String journalId = getJournalIdBy_JournalName(article.getJournal());
-                log.info(journalId);
-                if (journalId != null) {
-                    // 计算影响因子
-                    //todo 计算影响因子的方法有点问题需要修改
-                    double impactFactor = calculateImpactFactor(conn, journalId);
-                    log.info(String.valueOf(impactFactor));
-                    // 删除刚插入的文章
-                    String deleteSql = "DELETE FROM Article WHERE id = ?";
-                    try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
-                        deleteStmt.setInt(1, article.getId());
-                        int result = deleteStmt.executeUpdate();
-                        log.info("成功删除" +result);
+            try (
+                    PreparedStatement insertArticleStmt = conn.prepareStatement(insertArticleSql);
+                    PreparedStatement insertReferenceStmt = conn.prepareStatement(insertReferenceSql);
+                    PreparedStatement insertJournalArticleStmt = conn.prepareStatement(insertJournalArticleSql)
+            ) {
+                // 插入新文章
+                insertArticleStmt.setInt(1, article.getId());
+                insertArticleStmt.setString(2, article.getTitle());
+                insertArticleStmt.setString(3, article.getPub_model());
+                insertArticleStmt.setDate(4, article.getCreated() != null ? new java.sql.Date(article.getCreated().getTime()) : null);
+                insertArticleStmt.setDate(5, article.getCompleted() != null ? new java.sql.Date(article.getCompleted().getTime()) : null);
+
+                int affectedRows = insertArticleStmt.executeUpdate();
+                if (affectedRows > 0) {
+                    log.info("Inserted article with ID and createdtime: {},{}", article.getId(), article.getCreated());
+
+                    // 插入 journal_article 关系表
+                    String journalId = article.getJournal().getId();
+                    if (journalId == null) {
+                        log.warn("No journal found for article ID: {}", article.getId());
+                        return 0.0;
+                    }
+                    insertJournalArticleStmt.setString(1, journalId);  // 期刊ID
+                    insertJournalArticleStmt.setInt(2, article.getId());  // 文章ID
+                    insertJournalArticleStmt.executeUpdate();
+
+                    // 插入 references 数据
+                    if (article.getReferences() != null && article.getReferences().length > 0) {
+                        for (String reference : article.getReferences()) {
+                            // 这里假设 `reference` 是参考文章的 ID
+                            insertReferenceStmt.setInt(1, article.getId());
+                            insertReferenceStmt.setInt(2, Integer.parseInt(reference));  // 假设 references 数组中存储的是文章 ID
+                            insertReferenceStmt.addBatch();
+                        }
+                        insertReferenceStmt.executeBatch();  // 批量执行插入
                     }
 
-                    return impactFactor;  // 返回计算的影响因子
+                    // 提交事务（插入数据）
+                    conn.commit();
+
+                    // 计算影响因子
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.setTime(article.getCreated());
+                    int createdYear = calendar.get(Calendar.YEAR) + 1;
+                    log.info("Calculate from the year: {}", createdYear);
+
+                    double impactFactor = calculateImpactFactor(conn, journalId, createdYear);
+                    log.info("Calculated Impact Factor: {}", impactFactor);
+
+                    // 返回影响因子
+                    return impactFactor;
+                } else {
+                    // 插入失败，回滚事务
+                    conn.rollback();
+                    return 0.0;
                 }
+            } catch (SQLException e) {
+                // 出现异常时回滚事务
+                conn.rollback();
+                log.error("Error adding article and updating IF", e);
+                return 0.0;
             }
-
         } catch (SQLException e) {
-            log.error("Error adding article and updating IF", e);
+            log.error("Database connection error", e);
+            return 0.0;
+        } finally {
+            // 删除操作在返回影响因子后执行
+            deleteInsertedData(article);
         }
-
-        return 0.0;  // 如果发生错误或没有插入数据，返回0
     }
 
-    private double calculateImpactFactor(Connection conn, String journalId) throws SQLException {
-        // 计算 A：2022-2023年期间该期刊所有文章在2024年的引用次数
+    private void deleteInsertedData(Article article) {
+        String deleteArticleSql = "DELETE FROM Article WHERE id = ?";
+        String deleteReferenceSql = "DELETE FROM article_references WHERE article_id = ?";
+        String deleteJournalArticleSql = "DELETE FROM article_journal WHERE article_id = ?";
+
+        try (Connection conn = dataSource.getConnection()) {
+            // 禁用自动提交，开启事务
+            conn.setAutoCommit(false);
+
+            try (
+                    PreparedStatement deleteArticleStmt = conn.prepareStatement(deleteArticleSql);
+                    PreparedStatement deleteReferenceStmt = conn.prepareStatement(deleteReferenceSql);
+                    PreparedStatement deleteJournalArticleStmt = conn.prepareStatement(deleteJournalArticleSql)
+            ) {
+
+
+                // 删除参考文献
+                deleteReferenceStmt.setInt(1, article.getId());
+                deleteReferenceStmt.executeUpdate();
+
+                // 删除期刊和文章关联数据
+                deleteJournalArticleStmt.setInt(1, article.getId());
+                deleteJournalArticleStmt.executeUpdate();
+                // 删除文章
+                deleteArticleStmt.setInt(1, article.getId());
+                deleteArticleStmt.executeUpdate();
+                // 提交删除操作事务
+                conn.commit();
+                log.info("Successfully deleted article, references, and journal_article for article ID: {}", article.getId());
+            } catch (SQLException e) {
+                // 出现异常时回滚事务
+                conn.rollback();
+                log.error("Error deleting article, references, and journal_article", e);
+            }
+        } catch (SQLException e) {
+            log.error("Database connection error", e);
+        }
+    }
+
+
+
+
+    private double calculateImpactFactor(Connection conn, String journalId, int createdYear) throws SQLException {
+
+// 将年份转换为字符串并拼接日期
+        String startDateStr = (createdYear - 2) + "-01-01";
+        String endDateStr = (createdYear - 1) + "-12-31";
+        log.info("startDate: {}",startDateStr);
+        log.info("endDate: {}",endDateStr);
+// 将字符串转换为 java.sql.Date
+        java.sql.Date startDate = java.sql.Date.valueOf(startDateStr);
+        java.sql.Date endDate = java.sql.Date.valueOf(endDateStr);
+
+
+        // 计算 A：文章的引用总次数（引用年份为2024年，文章创建年份在2022年到2023年之间）
         String citationSql = """
-        SELECT SUM(ac.citation_count) AS total_citations
-        FROM Article_Citations ac
-        JOIN Article a ON ac.article_id = a.id
-        WHERE a.journal_id = ?
-          AND EXTRACT(YEAR FROM a.date_created) BETWEEN 2022 AND 2023
-          AND ac.citation_year = 2024;
-    """;
+SELECT sum(ac.citation_count) as total_citations
+FROM
+    (SELECT aj.article_id
+     FROM Article_Journal aj
+              JOIN article a ON aj.article_id = a.id
+     WHERE aj.journal_id = ?  -- 期刊ID
+       AND a.date_created BETWEEN ? AND ?
+    ) AS sa
+        LEFT JOIN Article_Citations ac
+                  ON sa.article_id = ac.article_id
+                      AND ac.citation_year = ?;
+""";
+
+        int totalCitations = 0;
         try (PreparedStatement stmt = conn.prepareStatement(citationSql)) {
-            stmt.setString(1, journalId);  // 使用字符串类型的期刊ID
+            stmt.setString(1, journalId);
+            stmt.setDate(2, startDate);  // 设置动态的起始日期
+            stmt.setDate(3, endDate);    // 设置动态的结束日期
+            stmt.setInt(4,createdYear);
             ResultSet rs = stmt.executeQuery();
-            int totalCitations = 0;
             if (rs.next()) {
                 totalCitations = rs.getInt("total_citations");
             }
-
-            // 计算 B：2022-2023年期间该期刊发布的文章数量
-            String articleCountSql = """
-            SELECT COUNT(*) AS article_count
-            FROM Article a
-            WHERE a.journal_id = ?
-              AND EXTRACT(YEAR FROM a.date_created) BETWEEN 2022 AND 2023;
-        """;
-            try (PreparedStatement countStmt = conn.prepareStatement(articleCountSql)) {
-                countStmt.setString(1, journalId);
-                ResultSet countRs = countStmt.executeQuery();
-                int articleCount = 0;
-                if (countRs.next()) {
-                    articleCount = countRs.getInt("article_count");
-                }
-
-                // 计算影响因子
-                if (articleCount > 0) {
-                    return (double) totalCitations / articleCount;
-                }
-            }
         }
-        return 0.0;  // 如果没有有效数据，则返回0
-    }
-    private String getJournalIdBy_JournalName(Journal journal) {
-        List<Integer> articles = new ArrayList<>();
-        String sql = "SELECT id FROM Journal WHERE title = ?";
-        String journalsId = null;
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, journal.getTitle());
+
+        // 计算 B：2022年到2023年发布的文章数量
+        String articleCountSql = """
+       SELECT count(DISTINCT a.id)  as article_count-- 使用 DISTINCT 以确保每篇文章只计数一次
+       FROM Article a
+                JOIN Article_Journal aj ON aj.article_id = a.id
+       WHERE aj.journal_id = ? AND a.date_created BETWEEN ? AND ? ;
+""";
+
+        int articleCount = 0;
+        try (PreparedStatement stmt = conn.prepareStatement(articleCountSql)) {
+            stmt.setString(1, journalId);
+            stmt.setDate(2, startDate);  // 设置动态的起始日期
+            stmt.setDate(3, endDate);    // 设置动态的结束日期
             ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                journalsId = rs.getString("id");
+            if (rs.next()) {
+                articleCount = rs.getInt("article_count");
             }
-        } catch (SQLException e) {
-            log.error("Error getting articles for author", e);
         }
-        return journalsId;
+
+        // 计算影响因子
+        if (articleCount > 0) {
+            return (double) totalCitations / articleCount;
+        }
+        return 0.0; // 如果没有文章或引用，返回0
     }
+
+
+
+
 }

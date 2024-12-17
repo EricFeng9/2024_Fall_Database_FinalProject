@@ -31,10 +31,14 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Autowired
     private DataSource dataSource;
 
+    public DataSource getDataSource() {
+        return dataSource;
+    }
+
     @Override
     public List<Integer> getGroupMembers() {
         //TODO: replace this with your own student IDs in your group
-        return Arrays.asList(12210000, 12210001, 12210002);
+        return Arrays.asList(12213023,12311031);
     }
 
     @Override
@@ -88,13 +92,51 @@ public class DatabaseServiceImpl implements DatabaseService {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, a);
             stmt.setInt(2, b);
-            //log.info("SQL: {}", stmt);
+            log.info("SQL: {}", stmt);
 
             ResultSet rs = stmt.executeQuery();
             rs.next();
             return rs.getInt(1);
         } catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public boolean backk() {
+        String updateSql = """
+            UPDATE Article_Journal aj
+            SET journal_id = '0151424'
+            WHERE aj.journal_id = '0000000' AND EXISTS (
+                SELECT 1
+                FROM Article a
+                WHERE a.id = aj.article_id AND EXTRACT(YEAR FROM a.date_created) >= 999
+            );
+        """;
+
+        String deleteSql = "DELETE FROM Journal WHERE id = '0000000';";
+
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+
+            // Update journal_id in Article_Journal
+            try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+                int rowsUpdated = updateStmt.executeUpdate();
+                log.info("Updated {} rows in Article_Journal", rowsUpdated);
+            }
+
+            // Delete the journal with id '0000000'
+            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                int rowsDeleted = deleteStmt.executeUpdate();
+                log.info("Deleted {} rows from Journal", rowsDeleted);
+            }
+
+            conn.commit();
+            log.info("Rollback changes successfully executed.");
+            return true;
+        } catch (SQLException e) {
+            log.error("Error during rollbackChanges execution", e);
+            return false;
         }
     }
 }
