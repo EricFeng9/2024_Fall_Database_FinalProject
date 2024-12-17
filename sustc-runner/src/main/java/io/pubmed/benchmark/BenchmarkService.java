@@ -155,30 +155,30 @@ public class BenchmarkService {
         return new io.pubmed.benchmark.BenchmarkResult(pass, endTime - startTime);
     }
 //    if you want test this bonus task, please uncomment the following code
-//    @io.pubmed.benchmark.BenchmarkStep(order = 5, timeout = 35, description = "Test getMinArticlesToLinkAuthors(Author, Author)")
-//    public BenchmarkResult getMinArticlesToLinkAuthors() {
-//
-//        List<Map.Entry<Object[], Integer>> cases = deserialize(io.pubmed.benchmark.BenchmarkConstants.TEST_DATA, io.pubmed.benchmark.BenchmarkConstants.getMinArticlesToLinkAuthors);
-//        val pass = new AtomicLong();
-//
-//        val startTime = System.currentTimeMillis();
-//        cases.parallelStream().forEach(it -> {
-//            try {
-//                val args = it.getKey();
-//                val res = authorService.getMinArticlesToLinkAuthors((Author)args[0],(Author)args[0]);
-//                if (it.getValue() == res) {
-//                    pass.incrementAndGet();
-//                } else {
-//                    log.info("Wrong answer for {}: expected {}, got {}", it.getKey(), it.getValue(), res);
-//                }
-//            } catch (Exception e) {
-//                log.error("Exception thrown for {}", it, e);
-//            }
-//        });
-//        val endTime = System.currentTimeMillis();
-//
-//        return new io.pubmed.benchmark.BenchmarkResult(pass, endTime - startTime);
-//    }
+    @io.pubmed.benchmark.BenchmarkStep(order = 5, timeout = 35, description = "Test getMinArticlesToLinkAuthors(Author, Author)")
+    public BenchmarkResult getMinArticlesToLinkAuthors() {
+
+        List<Map.Entry<Object[], Integer>> cases = deserialize(io.pubmed.benchmark.BenchmarkConstants.TEST_DATA, io.pubmed.benchmark.BenchmarkConstants.getMinArticlesToLinkAuthors);
+        val pass = new AtomicLong();
+
+        val startTime = System.currentTimeMillis();
+        cases.parallelStream().forEach(it -> {
+            try {
+                val args = it.getKey();
+                val res = authorService.getMinArticlesToLinkAuthors((Author)args[0],(Author)args[1]);
+                if (it.getValue() == res) {
+                    pass.incrementAndGet();
+                } else {
+                    log.info("Wrong answer for {}: expected {}, got {}", it.getKey(), it.getValue(), res);
+                }
+            } catch (Exception e) {
+                log.error("Exception thrown for {}", it, e);
+            }
+        });
+        val endTime = System.currentTimeMillis();
+
+        return new io.pubmed.benchmark.BenchmarkResult(pass, endTime - startTime);
+    }
 
 
     @io.pubmed.benchmark.BenchmarkStep(order = 6, timeout = 35, description = "Test getCountryFundPapers(String)")
